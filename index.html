@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>儲蓄進度追蹤器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box;
+        }
+        h2 {
+            margin-top: 0;
+            color: #1a1a1a;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        .target-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .target-title {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+        }
+        .target-amount {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: #0f172a;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+        input[type="number"] {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+        input[type="number"]:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        .progress-container {
+            margin-top: 2rem;
+        }
+        .progress-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            color: #475569;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        .progress-bar-bg {
+            background-color: #e2e8f0;
+            border-radius: 999px;
+            height: 20px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            height: 100%;
+            width: 0%;
+            border-radius: 999px;
+            transition: width 0.5s ease-out;
+        }
+        .history-section {
+            margin-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1.5rem;
+        }
+        .history-title {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .clear-btn {
+            background: none;
+            color: #ef4444;
+            border: none;
+            padding: 0;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .clear-btn:hover {
+            background: none;
+            text-decoration: underline;
+        }
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.875rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed #f1f5f9;
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>儲蓄進度追蹤</h2>
+    
+    <div class="target-box">
+        <div class="target-title">目標金額</div>
+        <div class="target-amount">$1,220,000</div>
+    </div>
+
+    <div class="input-group">
+        <input type="number" id="amountInput" placeholder="輸入本次存入金額" min="1">
+        <button onclick="addSavings()">投入</button>
+    </div>
+
+    <div class="progress-container">
+        <div class="progress-labels">
+            <span id="currentDisplay">已存: $0</span>
+            <span id="percentDisplay">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div id="progressBar" class="progress-bar-fill"></div>
+        </div>
+    </div>
+
+    <div class="history-section">
+        <div class="history-title">
+            <span>歷史紀錄</span>
+            <button class="clear-btn" onclick="resetTracker()">重設全部</button>
+        </div>
+        <ul id="historyList" class="history-list"></ul>
+    </div>
+</div>
+
+<script>
+    const TARGET = 1220000;
+    // 從瀏覽器儲存空間（localStorage）讀取舊資料，重整網頁資料也不會消失
+    let currentSaved = Number(localStorage.getItem('currentSaved')) || 0;
+    let historyLog = JSON.parse(localStorage.getItem('historyLog')) || [];
+
+    // 初始化網頁畫面
+    updateUI();
+
+    function addSavings() {
+        const input = document.getElementById('amountInput');
+        const amount = Math.floor(Number(input.value));
+
+        if (isNaN(amount) || amount <= 0) {
+            alert('請輸入正確的金額！');
+            return;
+        }
+
+        currentSaved += amount;
+        
+        // 紀錄時間與金額
+        const now = new Date();
+        const timeString = `${now.getMonth()+1}/${now.getDate()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        historyLog.unshift({ time: timeString, amount: amount });
+
+        // 儲存至本地瀏覽器
+        localStorage.setItem('currentSaved', currentSaved);
+        localStorage.setItem('historyLog', JSON.stringify(historyLog));
+
+        // 更新畫面
+        updateUI();
+        input.value = ''; // 清空輸入框
+    }
+
+    function updateUI() {
+        // 計算百分比（最高 100%）
+        const percentage = Math.min((currentSaved / TARGET) * 100, 100).toFixed(1);
+        
+        // 更新文字與進度條
+        document.getElementById('currentDisplay').innerText = `已存: $${currentSaved.toLocaleString()}`;
+        document.getElementById('percentDisplay').innerText = `${percentage}%`;
+        document.getElementById('progressBar').style.width = `${percentage}%`;
+
+        // 更新歷史紀錄列表
+        const listElement = document.getElementById('historyList');
+        listElement.innerHTML = '';
+        historyLog.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'history-item';
+            li.innerHTML = `<span>${item.time}</span> <strong>+$${item.amount.toLocaleString()}</strong>`;
+            listElement.appendChild(li);
+        });
+    }
+
+    function resetTracker() {
+        if (confirm('確定要清空所有存錢紀錄並重設嗎？')) {
+            currentSaved = 0;
+            historyLog = [];
+            localStorage.clear();
+            updateUI();
+        }
+    }
+</script>
+
+</body>
+</html>
